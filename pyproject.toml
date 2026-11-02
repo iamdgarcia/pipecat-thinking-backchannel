@@ -4,7 +4,7 @@ version = "0.1.0"
 description = "Make agentic voice AI feel alive — Pipecat agents that say \"one sec\" and \"let me check\" while the bot is thinking or running tools."
 readme = "README.md"
 requires-python = ">=3.11"
-license = "MIT"
+license = "BSD-2-Clause"
 license-files = ["LICENSE"]
 authors = [{ name = "Daniel Garcia Peña", email = "info@iamdgarcia.com" }]
 keywords = [
