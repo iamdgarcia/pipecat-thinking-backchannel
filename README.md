@@ -21,9 +21,7 @@ makes it sound like it's *working* while it thinks.
 
 ## Demo
 
-<video src="demo.mp4" controls muted preload="metadata" width="100%"></video>
-
-Direct link: [demo.mp4](https://github.com/iamdgarcia/pipecat-thinking-backchannel/raw/main/demo.mp4)
+[demo.mp4](https://github.com/iamdgarcia/pipecat-thinking-backchannel/releases/download/v0.1.0/demo.mp4) — the bot says "let me check" while the tool runs, and picks the conversation back up when the reply starts.
 
 ## Why
 
