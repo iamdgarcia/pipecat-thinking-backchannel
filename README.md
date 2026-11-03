@@ -7,6 +7,7 @@
 
 # pipecat-thinking-backchannel
 
+[![PyPI](https://img.shields.io/pypi/v/pipecat-thinking-backchannel?cacheSeconds=3600)](https://pypi.org/project/pipecat-thinking-backchannel)
 [![Python](https://img.shields.io/pypi/pyversions/pipecat-thinking-backchannel)](https://pypi.org/project/pipecat-thinking-backchannel)
 [![License](https://img.shields.io/badge/license-BSD--2--Clause-blue)](LICENSE)
 [![Pipecat](https://img.shields.io/badge/Pipecat-1.15.1-brightgreen)](https://github.com/pipecat-ai/pipecat)
@@ -17,6 +18,12 @@ while it waits for the LLM's first token or for a tool to finish.
 The companion to [`pipecat-backchannel`](https://github.com/maisterr/pipecat-backchannel),
 which makes the bot sound like it's *listening* while the user talks. This one
 makes it sound like it's *working* while it thinks.
+
+## Demo
+
+<video src="demo.mp4" controls muted preload="metadata" width="100%"></video>
+
+Direct link: [demo.mp4](https://github.com/iamdgarcia/pipecat-thinking-backchannel/raw/main/demo.mp4)
 
 ## Why
 
