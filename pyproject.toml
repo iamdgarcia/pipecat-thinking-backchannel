@@ -1,7 +1,7 @@
 [project]
 name = "pipecat-thinking-backchannel"
-version = "0.1.0"
-description = "Make agentic voice AI feel alive — Pipecat agents that say \"one sec\" and \"let me check\" while the bot is thinking or running tools."
+version = "0.2.0"
+description = "Make agentic voice AI feel alive — a Pipecat signal processor that fires when the bot has gone quiet thinking or running tools, so the app can speak a filler."
 readme = "README.md"
 requires-python = ">=3.11"
 license = "BSD-2-Clause"
@@ -24,13 +24,11 @@ classifiers = [
     "Topic :: Multimedia :: Sound/Audio :: Speech",
 ]
 
-# The clip infrastructure (library, recorder, player, cache, prewarm) is
-# reused from pipecat-backchannel; this package only adds the gate that
-# watches the LLM/tool frames. No VAD, no turn model, no ONNX — the gate is
-# a pure frame state machine.
+# Signal only: the frame state machine that watches the reply and the bot's
+# mouth. No clips, no recorder, no player, no VAD, no turn model, no ONNX.
+# The action (what to say) belongs to the app; speak.py ships the default.
 dependencies = [
     "pipecat-ai>=1.6.0,<2",
-    "pipecat-backchannel>=0.3,<0.4",
 ]
 
 [project.urls]
@@ -42,7 +40,7 @@ Issues = "https://github.com/iamdgarcia/pipecat-thinking-backchannel/issues"
 dev = ["pytest>=8", "pytest-asyncio>=0.24", "ruff>=0.8"]
 # Only the examples/ bot needs provider extras — the library itself needs none.
 examples = [
-    "pipecat-ai[cartesia,cerebras,deepgram,runner,silero,webrtc]",
+    "pipecat-ai[cerebras,deepgram,runner,silero,webrtc]",
     "python-dotenv",
 ]
 
@@ -65,7 +63,4 @@ asyncio_mode = "auto"
 asyncio_default_fixture_loop_scope = "function"
 filterwarnings = [
     "ignore::DeprecationWarning:pipecat.*",
-    "ignore::DeprecationWarning:pipecat_backchannel.*",
-    "ignore:`AudioContextTTSService` is deprecated:DeprecationWarning",
-    "ignore:`StartFrame.audio_out_sample_rate` is deprecated:DeprecationWarning",
 ]

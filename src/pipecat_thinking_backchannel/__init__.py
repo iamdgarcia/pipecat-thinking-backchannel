@@ -1,27 +1,37 @@
-"""pipecat-thinking-backchannel: fillers while the bot thinks or runs tools.
+"""pipecat-thinking-backchannel: your agent talks while it works.
 
-The companion to ``pipecat-backchannel`` (which backchannels while the *user*
-speaks). This one plays short fillers ("hmm", "one sec", "let me check") into
-the silences an agentic pipeline leaves while the LLM works out its reply and
-runs its tools.
+Place one processor between the LLM and the TTS; it fires an event whenever the
+bot has gone quiet waiting for its first token or for a tool::
+
+    from pipecat_thinking_backchannel import BotWorkingIdleProcessor, speak_filler
+
+    idle = BotWorkingIdleProcessor()
+    idle.add_event_handler("on_bot_working_idle", speak_filler(tts))
+
+    pipeline = Pipeline([
+        transport.input(), stt, context_aggregator.user(),
+        llm, idle, tts, transport.output(), context_aggregator.assistant(),
+    ])
+
+See the repository README for the full story.
 """
 
-from pipecat_thinking_backchannel.clips import DEFAULT_CLIP_GROUPS
-from pipecat_thinking_backchannel.gate import (
-    ThinkingBackchannelProcessor,
-    ThinkingParams,
+from .controller import (
+    KIND_LLM,
+    KIND_TOOL,
+    BotWorkingIdleParams,
+    BotWorkingIdleProcessor,
 )
-from pipecat_thinking_backchannel.placement import (
-    ThinkingBackchannelPlacementError,
-    insert_after_tts,
-)
-from pipecat_thinking_backchannel.plugin import ThinkingBackchannel
+from .speak import DEFAULT_PHRASES, speak_filler
+
+__version__ = "0.2.0"
 
 __all__ = [
-    "DEFAULT_CLIP_GROUPS",
-    "ThinkingBackchannel",
-    "ThinkingBackchannelPlacementError",
-    "ThinkingBackchannelProcessor",
-    "ThinkingParams",
-    "insert_after_tts",
+    "DEFAULT_PHRASES",
+    "KIND_LLM",
+    "KIND_TOOL",
+    "BotWorkingIdleParams",
+    "BotWorkingIdleProcessor",
+    "__version__",
+    "speak_filler",
 ]

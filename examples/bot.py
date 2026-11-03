@@ -1,22 +1,17 @@
-#
-# SPDX-License-Identifier: MIT
-#
+"""A support agent that talks while it works — signal from action.
 
-"""An agentic bot that talks while it works.
-
-The manual way to do this is pipecat's own function-calling example:
+pipecat's own function-calling example handles this manually:
 
     @llm.event_handler("on_function_calls_started")
     async def on_function_calls_started(service, function_calls):
         await tts.queue_frame(TTSSpeakFrame("Let me check on that."))
 
-One fixed phrase, only on tool starts, nothing for the first-token wait, and
-the filler lands in the LLM context as if the bot had meant to say it. This
-example replaces that with ThinkingBackchannel: fillers in the bot's own
-voice, on every kind of working silence, remembered by no one.
+One fixed phrase, only on tool starts, nothing for the first-token wait. This
+example replaces the hand wiring with the signal processor, and keeps the
+action exactly as explicit: the event handler decides what to say.
 
-The tools here deliberately sleep a few seconds so the silences are long
-enough to hear the fillers fire into.
+The signal goes between the LLM and the TTS; the action speaks through the
+real TTS with append_to_context=False, so the filler never reaches the context.
 
 Run with: uv run examples/bot.py --transport webrtc
 """
@@ -27,9 +22,9 @@ import os
 from dotenv import load_dotenv
 from loguru import logger
 from pipecat.audio.vad.silero import SileroVADAnalyzer
-from pipecat.frames.frames import LLMRunFrame
+from pipecat.frames.frames import LLMRunFrame, TTSSpeakFrame
 from pipecat.pipeline.pipeline import Pipeline
-from pipecat.pipeline.worker import PipelineParams, PipelineWorker
+from pipecat.pipeline.worker import PipelineWorker
 from pipecat.processors.aggregators.llm_context import LLMContext
 from pipecat.processors.aggregators.llm_response_universal import (
     LLMContextAggregatorPair,
@@ -38,44 +33,43 @@ from pipecat.processors.aggregators.llm_response_universal import (
 from pipecat.runner.types import RunnerArguments
 from pipecat.runner.utils import create_transport
 from pipecat.services.cartesia.tts import CartesiaTTSService
+from pipecat.services.cerebras.llm import CerebrasLLMService
 from pipecat.services.deepgram.stt import DeepgramSTTService
-from pipecat.services.llm_service import FunctionCallParams
-from pipecat.services.openai.llm import OpenAILLMService
 from pipecat.transports.base_transport import BaseTransport, TransportParams
 from pipecat.workers.runner import WorkerRunner
 
-from pipecat_thinking_backchannel import ThinkingBackchannel, ThinkingParams
+from pipecat_thinking_backchannel import (
+    DEFAULT_PHRASES,
+    BotWorkingIdleParams,
+    BotWorkingIdleProcessor,
+    speak_filler,
+)
 
 # Relative to this file, not the shell's cwd, so the example runs from anywhere.
-load_dotenv()
+load_dotenv(os.path.join(os.path.dirname(__file__), ".env"))
+
+TOOLS_DELAY_S = 3.0  # slow tools below, so the waits are long enough to hear
 
 
-async def get_weather(params: FunctionCallParams, location: str):
+async def get_weather(params, location: str):
     """Get the current weather for a city.
 
     Args:
         location (str): The city, e.g. "San Francisco".
     """
-    # Slow on purpose: long enough that the tool backchannel has room to fire.
-    await asyncio.sleep(4)
+    await asyncio.sleep(TOOLS_DELAY_S)
     await params.result_callback({"conditions": "sunny", "temperature": "22"})
 
 
-async def find_restaurant(params: FunctionCallParams, location: str, food: str):
+async def find_restaurant(params, location: str, food: str):
     """Find a restaurant serving a kind of food in a city.
 
     Args:
         location (str): The city, e.g. "Madrid".
         food (str): The kind of food, e.g. "ramen".
     """
-    await asyncio.sleep(3)
+    await asyncio.sleep(TOOLS_DELAY_S)
     await params.result_callback({"name": "Ramen House", "rating": 4.6})
-
-
-# One per process, prewarmed below and then called for every session.
-thinking = ThinkingBackchannel(
-    params=ThinkingParams(llm_delay_s=1.2, tool_delay_s=1.0, cooldown_s=5.0)
-)
 
 
 def make_tts() -> CartesiaTTSService:
@@ -96,9 +90,10 @@ async def run_bot(transport: BaseTransport, runner_args: RunnerArguments) -> Non
     stt = DeepgramSTTService(api_key=os.getenv("DEEPGRAM_API_KEY"))
     tts = make_tts()
 
-    llm = OpenAILLMService(
-        api_key=os.getenv("OPENAI_API_KEY"),
-        settings=OpenAILLMService.Settings(
+    llm = CerebrasLLMService(
+        api_key=os.getenv("CEREBRAS_API_KEY"),
+        model=os.getenv("CEREBRAS_MODEL", "llama-3.3-70b"),
+        settings=CerebrasLLMService.Settings(
             system_instruction=(
                 "You are a helpful assistant in a voice conversation. You have tools "
                 "for weather and restaurants; use them whenever they would help, and "
@@ -107,25 +102,30 @@ async def run_bot(transport: BaseTransport, runner_args: RunnerArguments) -> Non
             ),
         ),
     )
-
     context = LLMContext(tools=[get_weather, find_restaurant])
     user_aggregator, assistant_aggregator = LLMContextAggregatorPair(
         context,
         user_params=LLMUserAggregatorParams(vad_analyzer=SileroVADAnalyzer()),
     )
 
+    # The signal: one processor between the LLM and the TTS.
+    idle = BotWorkingIdleProcessor(
+        params=BotWorkingIdleParams(llm_delay_s=1.2, tool_delay_s=1.0, cooldown_s=5.0)
+    )
+    # The action: fillers through the real TTS, out of the LLM context.
+    idle.add_event_handler("on_bot_working_idle", speak_filler(tts, DEFAULT_PHRASES))
+
     pipeline = Pipeline(
-        thinking(
-            [
-                transport.input(),
-                stt,
-                user_aggregator,
-                llm,
-                tts,
-                transport.output(),
-                assistant_aggregator,
-            ]
-        )
+        [
+            transport.input(),
+            stt,
+            user_aggregator,
+            llm,
+            idle,
+            tts,
+            transport.output(),
+            assistant_aggregator,
+        ]
     )
 
     worker = PipelineWorker(
@@ -174,10 +174,5 @@ async def bot(runner_args: RunnerArguments):
 
 if __name__ == "__main__":
     from pipecat.runner.run import main
-
-    # Record the clips before the server accepts a single connection, so no
-    # caller ever waits for them. Returns straight away once .clip_cache/ is
-    # populated, so this only costs anything on the very first run.
-    asyncio.run(thinking.prewarm(tts=make_tts()))
 
     main()
