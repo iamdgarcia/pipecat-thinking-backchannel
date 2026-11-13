@@ -24,7 +24,7 @@ from .controller import (
 )
 from .speak import DEFAULT_PHRASES, speak_filler
 
-__version__ = "0.2.0"
+__version__ = "0.2.1"
 
 __all__ = [
     "DEFAULT_PHRASES",

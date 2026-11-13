@@ -1,6 +1,6 @@
 [project]
 name = "pipecat-thinking-backchannel"
-version = "0.2.0"
+version = "0.2.1"
 description = "Make agentic voice AI feel alive — a Pipecat signal processor that fires when the bot has gone quiet thinking or running tools, so the app can speak a filler."
 readme = "README.md"
 requires-python = ">=3.11"

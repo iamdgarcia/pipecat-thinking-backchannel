@@ -91,6 +91,11 @@ class BotWorkingIdleProcessor(FrameProcessor):
     - ``on_bot_working_idle(kind, function_name)``: emitted when a working
       silence has lasted long enough. ``kind`` is ``"llm"`` for the first-token
       wait or ``"tool"`` for a tool wait; ``function_name`` is set for tools.
+
+    The processor also records ``last_wait_ms`` (how long the wait had been
+    armed when the event fired; a deferred fire counts the speech in between).
+    Handlers read it off the ``processor`` argument, so the event signature
+    stays stable.
     """
 
     def __init__(self, *, params: BotWorkingIdleParams | None = None):
@@ -101,10 +106,13 @@ class BotWorkingIdleProcessor(FrameProcessor):
         self._timer: asyncio.Task | None = None
         self._kind: str | None = None
         self._function_name: str | None = None
+        self._armed_at: float | None = None
         self._deferred: bool = False
         self._bot_speaking: bool = False
         self._last_fired_at: float | None = None
         self._fired_this_episode: int = 0
+        #: How long the wait had been armed at the last fire (ms), for handlers.
+        self.last_wait_ms: float | None = None
 
     async def process_frame(self, frame: Frame, direction: FrameDirection):
         await super().process_frame(frame, direction)
@@ -153,6 +161,7 @@ class BotWorkingIdleProcessor(FrameProcessor):
         """Arm (or refresh) the single wait timer. Batches re-arm, not stack."""
         self._kind = kind
         self._function_name = function_name
+        self._armed_at = time.monotonic()
         await self._cancel_timer()
         self._timer = self.create_task(self._timer_expired(delay))
 
@@ -179,6 +188,8 @@ class BotWorkingIdleProcessor(FrameProcessor):
             return
         self._last_fired_at = now
         self._fired_this_episode += 1
+        if self._armed_at is not None:
+            self.last_wait_ms = (now - self._armed_at) * 1000
         await self._call_event_handler("on_bot_working_idle", self._kind, self._function_name)
 
     async def _disarm(self):
@@ -187,6 +198,7 @@ class BotWorkingIdleProcessor(FrameProcessor):
         self._deferred = False
         self._kind = None
         self._function_name = None
+        self._armed_at = None
 
     async def _cancel_timer(self):
         if self._timer:

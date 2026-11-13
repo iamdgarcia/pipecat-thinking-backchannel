@@ -156,3 +156,13 @@ async def test_frames_pass_through_downstream_and_upstream():
 
     assert any(isinstance(f, FunctionCallInProgressFrame) for f in down_sink.frames)
     assert any(isinstance(f, BotStoppedSpeakingFrame) for f in up_sink.frames)
+
+
+async def test_last_wait_ms_reports_the_armed_wait():
+    controller, _, events = await make_controller()
+    await send(controller, LLMFullResponseStartFrame())
+    await settle()
+    assert events == [("llm", None)]
+    assert controller.last_wait_ms is not None
+    # FAST llm_delay_s is 0.1s; the fire lands within a couple of ticks.
+    assert 90 <= controller.last_wait_ms < 1500

@@ -1,5 +1,14 @@
 # Changelog
 
+## 0.2.1
+
+**Added**
+
+- `BotWorkingIdleProcessor.last_wait_ms`: how long the wait had been armed
+  when the event fired (a deferred fire counts the speech in between).
+  Handlers read it off the `processor` argument; the event signature is
+  unchanged.
+
 ## 0.2.0
 
 Restructure after maintainer feedback on the docs listing proposal
